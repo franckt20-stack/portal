@@ -626,8 +626,32 @@ async function launchSlideshow(config, photos) {
   $('slideshow').style.display = 'block';
 
   buildDots();
-  tickClock();
-  setInterval(tickClock, 1000);
+tickClock();
+setInterval(tickClock, 1000);
+
+// Empêche la mise en veille
+async function keepAwake() {
+  try {
+    await navigator.wakeLock.request('screen');
+  } catch (e) {
+    // Wake Lock non supporté, solution de secours :
+    // joue une vidéo invisible en boucle
+    const v = document.createElement('video');
+    v.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAA';
+    v.loop = true;
+    v.muted = true;
+    v.playsInline = true;
+    v.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;z-index:-1';
+    document.body.appendChild(v);
+    v.play().catch(() => {});
+  }
+}
+keepAwake();
+
+// Relance le Wake Lock si la page revient au premier plan
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') keepAwake();
+});
 
   document.addEventListener('click', function enterFS() {
   const el = document.documentElement;
