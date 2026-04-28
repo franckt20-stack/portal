@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Mon Slideshow</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #080810;
+      color: white;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ── Setup ──────────────────────────────────────────────── */
+    #setup {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 40px 24px;
+      background: radial-gradient(ellipse at 30% 60%, #1a1035 0%, #080810 70%);
+    }
+
+    #setup-logo {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+
+    #setup h1 {
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: 4px;
+      color: white;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    #setup-sub {
+      color: rgba(255,255,255,0.3);
+      font-size: 11px;
+      letter-spacing: 2px;
+      font-family: sans-serif;
+      text-transform: uppercase;
+      margin-bottom: 36px;
+    }
+
+    .form-group {
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      font-family: sans-serif;
+      margin-bottom: 7px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: white;
+      font-size: 14px;
+      font-family: sans-serif;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: rgba(160,140,255,0.5);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .form-group input::placeholder {
+      color: rgba(255,255,255,0.18);
+    }
+
+    .form-group select option { background: #1a1035; }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 18px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    #btn-start {
+      width: 100%;
+      max-width: 400px;
+      padding: 15px;
+      background: linear-gradient(135deg, #a08cff 0%, #6c63ff 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: sans-serif;
+    }
+
+    #btn-start:hover { opacity: 0.88; }
+    #btn-start:active { transform: scale(0.98); }
+
+    #error-msg {
+      color: #ff8080;
+      font-size: 12px;
+      font-family: sans-serif;
+      margin-top: 14px;
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.5;
+    }
+
+    /* ── Loading ─────────────────────────────────────────────── */
+    #loading {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #080810;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 200;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: rgba(160,140,255,0.7);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-text {
+      color: rgba(255,255,255,0.35);
+      font-size: 12px;
+      font-family: sans-serif;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ── Slideshow ───────────────────────────────────────────── */
+    #slideshow {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: black;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 1.4s ease;
+      will-change: transform, opacity;
+    }
+
+    .slide.active { opacity: 1; }
+
+    /* Ken Burns — 4 directions */
+    @keyframes kb-zoom-in-left  { from { transform: scale(1.10) translate(2%,  1%); } to { transform: scale(1.00) translate(-1%, -1%); } }
+    @keyframes kb-zoom-in-right { from { transform: scale(1.10) translate(-2%, -1%); } to { transform: scale(1.00) translate(1%,  1%); } }
+    @keyframes kb-zoom-out-left { from { transform: scale(1.00) translate(-1%, 1%); } to { transform: scale(1.08) translate(2%, -1%); } }
+    @keyframes kb-zoom-out-right{ from { transform: scale(1.00) translate(2%, -1%); } to { transform: scale(1.08) translate(-2%, 1%); } }
+
+    .kb0.active { animation: kb-zoom-in-left   var(--dur) ease-out   both; }
+    .kb1.active { animation: kb-zoom-in-right  var(--dur) ease-out   both; }
+    .kb2.active { animation: kb-zoom-out-left  var(--dur) ease-in-out both; }
+    .kb3.active { animation: kb-zoom-out-right var(--dur) ease-in-out both; }
+
+    /* Gradients */
+    #grad-top {
+      position: fixed; top: 0; left: 0; right: 0; height: 220px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%);
+      z-index: 10; pointer-events: none;
+    }
+    #grad-bottom {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 200px;
+      background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
+      z-index: 10; pointer-events: none;
+    }
+
+    /* Clock */
+    #clock {
+      position: fixed;
+      top: 26px; right: 30px;
+      z-index: 20;
+      text-align: right;
+      pointer-events: none;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.9);
+    }
+
+    #clock-time {
+      font-size: 58px;
+      font-weight: 200;
+      letter-spacing: 3px;
+      color: white;
+      line-height: 1;
+    }
+
+    #clock-colon {
+      display: inline-block;
+      animation: blink-colon 1s step-end infinite;
+    }
+
+    @keyframes blink-colon { 50% { opacity: 0.25; } }
+
+    #clock-date {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-family: sans-serif;
+      margin-top: 5px;
+    }
+
+    /* Progress bar */
+    #progress {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+      z-index: 30;
+    }
+
+    #progress-fill {
+      height: 100%;
+      width: 0%;
+      background: rgba(255,255,255,0.45);
+    }
+
+    /* Dots */
+    #dots {
+      position: fixed;
+      bottom: 22px; right: 28px;
+      z-index: 20;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .dot {
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.3);
+      transition: all 0.35s ease;
+    }
+
+    .dot.current {
+      width: 18px !important;
+      background: rgba(255,255,255,0.85) !important;
+    }
+
+    /* Settings button (révélé au hover / tap) */
+    #btn-settings {
+      position: fixed;
+      bottom: 18px; left: 18px;
+      z-index: 30;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: rgba(255,255,255,0.35);
+      font-size: 11px;
+      cursor: pointer;
+      font-family: sans-serif;
+      letter-spacing: 1px;
+      opacity: 0;
+      transition: opacity 0.4s;
+      backdrop-filter: blur(4px);
+    }
+
+    #slideshow:hover #btn-settings,
+    #slideshow:focus-within #btn-settings {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════ SETUP ═══════════════════ -->
+<div id="setup">
+  <div id="setup-logo">📽</div>
+  <h1>Mon Slideshow</h1>
+  <div id="setup-sub">Configuration — une seule fois</div>
+
+  <div class="form-group">
+    <label>Nom d'utilisateur GitHub</label>
+    <input type="text" id="in-owner" placeholder="ex : jean-dupont" autocomplete="off" spellcheck="false" />
+  </div>
+
+  <div class="form-group">
+    <label>Nom du repo privé (photos)</label>
+    <input type="text" id="in-repo" placeholder="ex : mes-photos-portal" autocomplete="off" spellcheck="false" />
+  </div>
+
+  <div class="form-group">
+    <label>Token d'accès GitHub (lecture seule)</label>
+    <input type="password" id="in-token" placeholder="github_pat_…" autocomplete="off" />
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label>Durée par photo (sec)</label>
+      <input type="number" id="in-interval" value="8" min="3" max="120" />
+    </div>
+    <div class="form-group">
+      <label>Ordre</label>
+      <select id="in-order">
+        <option value="random">Aléatoire</option>
+        <option value="chrono">Chronologique</option>
+        <option value="reverse">Anti-chron.</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="btn-start" onclick="handleStart()">▶ Lancer le slideshow</button>
+  <div id="error-msg"></div>
+</div>
+
+<!-- ═══════════════════ LOADING ═══════════════════ -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="loading-text">Connexion…</div>
+</div>
+
+<!-- ═══════════════════ SLIDESHOW ═══════════════════ -->
+<div id="slideshow">
+  <div id="grad-top"></div>
+  <div id="grad-bottom"></div>
+
+  <div id="clock">
+    <div id="clock-time">--<span id="clock-colon">:</span>--</div>
+    <div id="clock-date"></div>
+  </div>
+
+  <div id="dots"></div>
+  <div id="progress"><div id="progress-fill"></div></div>
+
+  <button id="btn-settings" onclick="confirmReset()">⚙ Paramètres</button>
+</div>
+
+<script>
+'use strict';
+
+// ── Constantes ────────────────────────────────────────────────────────────────
+const STORE_KEY = 'portal_cfg_v1';
+const DAYS_FR   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+// ── État global ───────────────────────────────────────────────────────────────
+let cfg        = null;
+let photoList  = [];
+let blobCache  = {};   // index → objectURL
+let order      = [];   // index sequence
+let seqPos     = 0;
+let advTimer   = null;
+let slideNodes = {};   // 0 | 1 → <div.slide>
+let activeSide = 0;
+
+// ── Persistance ───────────────────────────────────────────────────────────────
+const loadCfg  = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)); } catch { return null; } };
+const saveCfg  = (c) => localStorage.setItem(STORE_KEY, JSON.stringify(c));
+const clearCfg = () => localStorage.removeItem(STORE_KEY);
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+const $  = (id) => document.getElementById(id);
+const show = (id) => $(id).style.display = 'flex';
+const hide = (id) => $(id).style.display = 'none';
+
+function setLoading(text) {
+  $('setup').style.display   = 'none';
+  $('slideshow').style.display = 'none';
+  $('loading').style.display = 'flex';
+  $('loading-text').textContent = text;
+}
+
+function setError(msg) {
+  $('loading').style.display  = 'none';
+  $('setup').style.display    = 'flex';
+  $('error-msg').textContent  = msg ? '❌ ' + msg : '';
+}
+
+// ── GitHub API ────────────────────────────────────────────────────────────────
+async function ghFetch(path, token) {
+  const r = await fetch('https://api.github.com' + path, {
+    headers: {
+      'Authorization': 'token ' + token,
+      'Accept': 'application/vnd.github.v3+json'
+    }
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.message || 'Erreur HTTP ' + r.status);
+  }
+  return r.json();
+}
+
+async function fetchPhotoList(owner, repo, token) {
+  // Try root first, then 'photos/' subfolder fallback
+  let files = await ghFetch(`/repos/${owner}/${repo}/contents/`, token);
+  if (!Array.isArray(files)) throw new Error('Réponse inattendue de GitHub');
+
+  const images = files.filter(f =>
+    f.type === 'file' && /\.(jpe?g|png|webp|gif|avif)$/i.test(f.name)
+  );
+
+  // Also check a 'photos/' subfolder if no images in root
+  if (images.length === 0) {
+    const sub = files.find(f => f.type === 'dir' && f.name.toLowerCase() === 'photos');
+    if (sub) {
+      const subFiles = await ghFetch(`/repos/${owner}/${repo}/contents/photos`, token);
+      return subFiles.filter(f =>
+        f.type === 'file' && /\.(jpe?g|png|webp|gif|avif)$/i.test(f.name)
+      );
+    }
+  }
+
+  return images;
+}
+
+// ── Chargement image (blob auth) ──────────────────────────────────────────────
+async function fetchBlob(downloadUrl, token) {
+  const r = await fetch(downloadUrl, {
+    headers: { 'Authorization': 'token ' + token }
+  });
+  if (!r.ok) throw new Error('Image inaccessible');
+  const blob = await r.blob();
+  return URL.createObjectURL(blob);
+}
+
+async function ensureBlob(idx) {
+  if (blobCache[idx]) return blobCache[idx];
+  const url = await fetchBlob(photoList[idx].download_url, cfg.token);
+  blobCache[idx] = url;
+  return url;
+}
+
+function preloadAhead(fromIdx, count = 3) {
+  for (let i = 1; i <= count; i++) {
+    const idx = order[(seqPos + i) % order.length];
+    ensureBlob(idx).catch(() => {});
+  }
+}
+
+// ── Séquence ──────────────────────────────────────────────────────────────────
+function buildOrder() {
+  const n = photoList.length;
+  order = Array.from({ length: n }, (_, i) => i);
+  if (cfg.order === 'random') {
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  } else if (cfg.order === 'reverse') {
+    order.reverse();
+  }
+}
+
+// ── Slide DOM ─────────────────────────────────────────────────────────────────
+function getSlide(side) {
+  if (!slideNodes[side]) {
+    const el = document.createElement('div');
+    el.className = 'slide';
+    $('slideshow').insertBefore(el, $('grad-top'));
+    slideNodes[side] = el;
+  }
+  return slideNodes[side];
+}
+
+// ── Affichage d'une photo ─────────────────────────────────────────────────────
+async function showSlide(pos) {
+  const idx   = order[pos % order.length];
+  const durMs = cfg.interval * 1000;
+  const kbClass = 'kb' + (Math.floor(Math.random() * 4));
+
+  const blobUrl = await ensureBlob(idx);
+
+  const incoming = activeSide ^ 1;
+  const outEl    = getSlide(activeSide);
+  const inEl     = getSlide(incoming);
+
+  // Préparer le slide entrant
+  inEl.className = 'slide ' + kbClass;
+  inEl.style.cssText = `--dur:${cfg.interval + 2}s; background-image:url('${blobUrl}')`;
+
+  // Force reflow puis crossfade
+  void inEl.offsetWidth;
+  inEl.classList.add('active');
+  outEl.classList.remove('active');
+  activeSide = incoming;
+
+  // Progress bar
+  const fill = $('progress-fill');
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  void fill.offsetWidth;
+  fill.style.transition = `width ${durMs}ms linear`;
+  fill.style.width = '100%';
+
+  // Dots
+  updateDots(pos);
+
+  // Préchargement
+  preloadAhead(pos);
+
+  // Timer suivant
+  if (advTimer) clearTimeout(advTimer);
+  advTimer = setTimeout(() => {
+    seqPos = (seqPos + 1) % order.length;
+    // Rebuild shuffled order at each full loop
+    if (seqPos === 0 && cfg.order === 'random') buildOrder();
+    showSlide(seqPos);
+  }, durMs);
+}
+
+// ── Dots indicateurs (max 12 visibles) ───────────────────────────────────────
+function buildDots() {
+  const el   = $('dots');
+  const max  = Math.min(photoList.length, 12);
+  el.innerHTML = '';
+  for (let i = 0; i < max; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.style.width = '4px';
+    el.appendChild(d);
+  }
+}
+
+function updateDots(pos) {
+  const dotEls = $('dots').children;
+  const max    = dotEls.length;
+  if (!max) return;
+  const mapped = pos % max;
+  Array.from(dotEls).forEach((d, i) => {
+    d.classList.toggle('current', i === mapped);
+  });
+}
+
+// ── Horloge ───────────────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  const h   = String(now.getHours()).padStart(2, '0');
+  const m   = String(now.getMinutes()).padStart(2, '0');
+  $('clock-time').innerHTML = h + '<span id="clock-colon">:</span>' + m;
+  $('clock-date').textContent =
+    DAYS_FR[now.getDay()] + ' ' + now.getDate() + ' ' + MONTHS_FR[now.getMonth()];
+}
+
+// ── Lancement slideshow ───────────────────────────────────────────────────────
+async function launchSlideshow(config, photos) {
+  cfg       = config;
+  photoList = photos;
+  blobCache = {};
+  seqPos    = 0;
+
+  buildOrder();
+  setLoading('Chargement de la première photo…');
+
+  // Précharger la première image avant d'afficher
+  await ensureBlob(order[0]);
+
+  // Passer en mode slideshow
+  $('loading').style.display  = 'none';
+  $('setup').style.display    = 'none';
+  $('slideshow').style.display = 'block';
+
+  buildDots();
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  showSlide(0);
+}
+
+// ── Handler bouton start ──────────────────────────────────────────────────────
+async function handleStart() {
+  const owner    = $('in-owner').value.trim();
+  const repo     = $('in-repo').value.trim();
+  const token    = $('in-token').value.trim();
+  const interval = Math.max(3, parseInt($('in-interval').value) || 8);
+  const ord      = $('in-order').value;
+
+  if (!owner || !repo || !token) {
+    $('error-msg').textContent = '❌ Tous les champs sont obligatoires.';
+    return;
+  }
+
+  $('error-msg').textContent = '';
+  setLoading('Connexion à GitHub…');
+
+  try {
+    const photos = await fetchPhotoList(owner, repo, token);
+    if (photos.length === 0) throw new Error('Aucune photo trouvée dans ce repo (racine ou dossier /photos).');
+
+    const config = { owner, repo, token, interval, order: ord };
+    saveCfg(config);
+    await launchSlideshow(config, photos);
+  } catch (e) {
+    setError(e.message);
+  }
+}
+
+// ── Réinitialisation ──────────────────────────────────────────────────────────
+function confirmReset() {
+  if (confirm('Réinitialiser la configuration et revenir à l\'écran de démarrage ?')) {
+    clearCfg();
+    location.reload();
+  }
+}
+
+// ── Auto-démarrage si config sauvegardée ──────────────────────────────────────
+(async function init() {
+  const saved = loadCfg();
+  if (!saved) return; // Rester sur le setup
+
+  setLoading('Récupération des photos…');
+  try {
+    const photos = await fetchPhotoList(saved.owner, saved.repo, saved.token);
+    if (photos.length === 0) throw new Error('Aucune photo trouvée.');
+    await launchSlideshow(saved, photos);
+  } catch (e) {
+    clearCfg();
+    setError(e.message + ' — Vérifiez votre configuration.');
+  }
+})();
+</script>
+</body>
+</html>
