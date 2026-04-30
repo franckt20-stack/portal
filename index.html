@@ -627,7 +627,43 @@ async function launchSlideshow(config, photos) {
 
   buildDots();
 tickClock();
+
+let slideshowPaused = false;
+const HOUR_STOP  = 21;
+const HOUR_START = 10;
+
+function checkSchedule() {
+  const h = new Date().getHours();
+  const shouldSleep = (h >= HOUR_STOP || h < HOUR_START);
+
+  if (shouldSleep && !slideshowPaused) {
+    // Éteindre
+    slideshowPaused = true;
+    if (advTimer) { clearTimeout(advTimer); advTimer = null; }
+    $('progress-fill').style.transition = 'none';
+    $('progress-fill').style.width = '0%';
+    Object.values(slideNodes).forEach(el => el.classList.remove('active'));
+    $('slideshow').style.background = '#000';
+  }
+
+  if (!shouldSleep && slideshowPaused) {
+    // Rallumer
+    slideshowPaused = false;
+    $('slideshow').style.background = '';
+    // Tenter le plein écran
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    // Reprendre le slideshow
+    seqPos = 0;
+    if (cfg.order === 'random') buildOrder();
+    showSlide(seqPos);
+  }
+}
+
 setInterval(tickClock, 1000);
+setInterval(checkSchedule, 60000); // vérifie chaque minute
+checkSchedule(); // vérifie immédiatement au démarrage
 
 // Empêche la mise en veille
 async function keepAwake() {
